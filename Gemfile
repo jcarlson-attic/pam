@@ -22,6 +22,10 @@ group :test, :development do
   gem 'rspec-rails'
 end
 
+group :test do
+  gem 'rspec'
+end
+
 group :development do
   gem 'growl'
   gem 'guard'
