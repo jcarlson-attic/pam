@@ -11,10 +11,10 @@
 #
 # It's strongly recommended to check this file into your version control system.
 
-ActiveRecord::Schema.define(:version => 20120122182647) do
+ActiveRecord::Schema.define(:version => 20120122184535) do
 
   create_table "volumes", :force => true do |t|
-    t.string   "name"
+    t.string   "label"
     t.string   "capacity"
     t.string   "index"
     t.datetime "created_at"
