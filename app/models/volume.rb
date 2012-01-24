@@ -17,9 +17,12 @@ class Volume < ActiveRecord::Base
                                       :on => :create
   
   def activate!
-    previous.lock! unless previous.nil?
-    `SetFile -a v "#{staging_path}"`
-    
+    show unless active?
+    previous.lock! unless previous.nil? or previous.locked?
+  end
+  
+  def active?
+    !locked? and `GetFileInfo -av "#{staging_path}"`.chomp == "0"
   end
   
   def name
@@ -28,8 +31,12 @@ class Volume < ActiveRecord::Base
   
   def lock!
     raise "Allocate a new Volume before locking this one" if self.next.nil?
-    `chmod -R a-w "#{staging_path}"`
-    `chflags uchg "#{staging_path}"`
+    lock unless locked?
+    self.next.activate! unless self.next.active?
+  end
+  
+  def locked?
+    `GetFileInfo -al "#{staging_path}"`.chomp == "1"
   end
   
   def next
@@ -48,7 +55,25 @@ private
   
   def create_staging_path!
     FileUtils.mkdir staging_path unless File.directory?(staging_path)
+    hide
+  end
+  
+  def hide
     `SetFile -a V "#{staging_path}"`
+  end
+  
+  def lock
+    `chmod -R a-w "#{staging_path}"`
+    `chflags uchg "#{staging_path}"`
+  end
+  
+  def show
+    `SetFile -a v "#{staging_path}"`
+  end
+  
+  def unlock
+    `chflags nouchg "#{staging_path}"`
+    `chmod -R u+w "#{staging_path}"`
   end
   
 end
