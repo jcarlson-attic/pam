@@ -16,6 +16,16 @@ class Volume < ActiveRecord::Base
   validates_format_of     :label,     :with => /^[A-Za-z][A-Za-z0-9\s]+[A-Za-z0-9]$/,
                                       :on => :create
   
+  def self.staged
+    volumes = Dir.entries(STAGING_PATH).select do |entry|
+      entry.match /^[0-9]{3}/
+    end
+    # This is a little bit magic... volume names are something like "123 Label"
+    # and the find[_by_id(s)] method will accept ["123 Label", "456 Label"] as 
+    # [123, 456] and thus return two Volumes
+    find volumes
+  end
+  
   def activate!
     show unless active?
     previous.lock! unless previous.nil? or previous.locked?
@@ -25,8 +35,9 @@ class Volume < ActiveRecord::Base
     !locked? and `GetFileInfo -av "#{staging_path}"`.chomp == "0"
   end
   
-  def name
-    "#{'%03d' % id} #{label}"
+  def compare
+    raise "Volume media is not online" unless online?
+    puts `rsync -n -avxl "#{staging_path}/" "#{volume_path}/"`
   end
   
   def lock!
@@ -39,6 +50,14 @@ class Volume < ActiveRecord::Base
     `GetFileInfo -al "#{staging_path}"`.chomp == "1"
   end
   
+  def online?
+    File.directory?(volume_path)
+  end
+  
+  def name
+    "#{'%03d' % id} #{label}"
+  end
+  
   def next
     self.class.where("id > ?", id).order("id ASC").limit(1).first
   end
@@ -47,8 +66,17 @@ class Volume < ActiveRecord::Base
     self.class.where("id < ?", id).order("id DESC").limit(1).first
   end
   
+  def size
+    `du -h "#{staging_path}"`.chomp.split("\t").first
+  end
+  alias :size? :size
+  
   def staging_path
     File.join STAGING_PATH, name
+  end
+  
+  def volume_path
+    File.join VOLUME_PATH, name
   end
   
 private
